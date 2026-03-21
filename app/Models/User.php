@@ -2,22 +2,16 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
-
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, HasApiTokens;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'name',
         'email',
@@ -26,26 +20,36 @@ class User extends Authenticatable
         'profile_image',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function lostItems(): HasMany
+    {
+        return $this->hasMany(LostItem::class);
+    }
+
+    public function foundItems(): HasMany
+    {
+        return $this->hasMany(FoundItem::class, 'staff_id');
+    }
+
+    public function claimRequests(): HasMany
+    {
+        return $this->hasMany(ClaimRequest::class, 'claimant_id');
+    }
+
+    public function approvedClaims(): HasMany
+    {
+        return $this->hasMany(ClaimRequest::class, 'approved_by');
     }
 }
