@@ -21,6 +21,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/staff', [AuthController::class, 'createStaff'])->middleware('role:admin');
 
     Route::get('/admin-only', function () {
         return response()->json([

@@ -17,14 +17,13 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'role' => ['nullable', 'in:admin,staff,user'],
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => $validated['password'],
-            'role' => $validated['role'] ?? 'user',
+            'role' => 'user',
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -62,6 +61,28 @@ class AuthController extends Controller
             'token_type' => 'Bearer',
             'user' => $user,
         ]);
+    }
+
+    public function createStaff(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $staff = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'role' => 'staff',
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Staff account created successfully.',
+            'user' => $staff,
+        ], 201);
     }
 
     public function me(Request $request)
