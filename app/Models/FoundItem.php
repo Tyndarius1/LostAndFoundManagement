@@ -47,5 +47,4 @@ class FoundItem extends Model
     {
         return $this->hasMany(ClaimRequest::class);
     }
-    
 }

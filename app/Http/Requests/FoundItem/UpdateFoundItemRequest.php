@@ -3,6 +3,8 @@
 namespace App\Http\Requests\FoundItem;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
 
 class UpdateFoundItemRequest extends FormRequest
 {
