@@ -3,6 +3,7 @@
 namespace App\Http\Requests\LostItem;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateLostItemRequest extends FormRequest
 {
