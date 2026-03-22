@@ -74,11 +74,13 @@ class FoundItemController extends Controller
         );
     }
 
+   
     public function update(UpdateFoundItemRequest $request, FoundItem $foundItem)
-    {
-        $user = $request->user();
+{
+    $user = $request->user();
 
-        if ($user->role === 'staff' && $foundItem->staff_id !== $user->id) {
+    if ($user->role === 'staff') {
+        if ($foundItem->staff_id !== $user->id) {
             return $this->errorResponse(
                 'Forbidden. You are not allowed to update this found item.',
                 null,
@@ -86,26 +88,46 @@ class FoundItemController extends Controller
             );
         }
 
-        $data = $request->validated();
-
-        if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('found-items', 'public');
+        if (! in_array($foundItem->status, ['available', 'under_review'])) {
+            return $this->errorResponse(
+                'This found item can no longer be updated.',
+                null,
+                422
+            );
         }
-
-        $foundItem->update($data);
-        $foundItem->load(['staff', 'category']);
-
-        return $this->successResponse(
-            'Found item updated successfully.',
-            new FoundItemResource($foundItem->fresh(['staff', 'category']))
-        );
     }
 
-    public function destroy(Request $request, FoundItem $foundItem)
-    {
-        $user = $request->user();
+    $data = $request->validated();
 
-        if ($user->role === 'staff' && $foundItem->staff_id !== $user->id) {
+    if ($request->hasFile('image')) {
+        $data['image_path'] = $request->file('image')->store('found-items', 'public');
+    }
+
+    if ($user->role === 'staff' && isset($data['status'])) {
+        if (! in_array($data['status'], ['available', 'under_review'])) {
+            return $this->errorResponse(
+                'Staff cannot set this status.',
+                null,
+                422
+            );
+        }
+    }
+
+    $foundItem->update($data);
+
+    return $this->successResponse(
+        'Found item updated successfully.',
+        new FoundItemResource($foundItem->fresh(['staff', 'category']))
+    );
+}
+
+    
+public function destroy(Request $request, FoundItem $foundItem)
+{
+    $user = $request->user();
+
+    if ($user->role === 'staff') {
+        if ($foundItem->staff_id !== $user->id) {
             return $this->errorResponse(
                 'Forbidden. You are not allowed to delete this found item.',
                 null,
@@ -113,19 +135,38 @@ class FoundItemController extends Controller
             );
         }
 
-        $foundItem->delete();
+        if ($foundItem->status !== 'available') {
+            return $this->errorResponse(
+                'Only available found items can be deleted by staff.',
+                null,
+                422
+            );
+        }
+    }
 
-        return $this->successResponse(
-            'Found item deleted successfully.'
+    $foundItem->delete();
+
+    return $this->successResponse('Found item deleted successfully.');
+}
+
+
+public function archive(Request $request, FoundItem $foundItem)
+{
+    if (! in_array($foundItem->status, ['available', 'under_review'])) {
+        return $this->errorResponse(
+            'Only available or under review items can be archived.',
+            null,
+            422
         );
     }
 
-    private function generateReferenceCode(): string
-    {
-        do {
-            $referenceCode = 'FI-' . now()->format('Y') . '-' . strtoupper(str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT));
-        } while (FoundItem::where('reference_code', $referenceCode)->exists());
+    $foundItem->update([
+        'status' => 'archived',
+    ]);
 
-        return $referenceCode;
-    }
+    return $this->successResponse(
+        'Found item archived successfully.',
+        new FoundItemResource($foundItem->fresh(['staff', 'category']))
+    );
+}
 }

@@ -73,13 +73,33 @@ class LostItemController extends Controller
         );
     }
 
-    public function update(UpdateLostItemRequest $request, LostItem $lostItem)
+   
+
+        public function update(UpdateLostItemRequest $request, LostItem $lostItem)
     {
         $user = $request->user();
 
-        if ($user->role === 'user' && $lostItem->user_id !== $user->id) {
+        if ($user->role === 'user') {
+            if ($lostItem->user_id !== $user->id) {
+                return $this->errorResponse(
+                    'Forbidden. You are not allowed to update this lost item.',
+                    null,
+                    403
+                );
+            }
+
+            if ($lostItem->status !== 'pending') {
+                return $this->errorResponse(
+                    'Only pending lost items can be updated.',
+                    null,
+                    422
+                );
+            }
+        }
+
+        if ($user->role === 'staff') {
             return $this->errorResponse(
-                'Forbidden. You are not allowed to update this lost item.',
+                'Staff are not allowed to update lost items.',
                 null,
                 403
             );
@@ -96,7 +116,6 @@ class LostItemController extends Controller
         }
 
         $lostItem->update($data);
-        $lostItem->load(['user', 'category']);
 
         return $this->successResponse(
             'Lost item updated successfully.',
@@ -104,11 +123,14 @@ class LostItemController extends Controller
         );
     }
 
-    public function destroy(Request $request, LostItem $lostItem)
-    {
-        $user = $request->user();
 
-        if ($user->role === 'user' && $lostItem->user_id !== $user->id) {
+
+    public function destroy(Request $request, LostItem $lostItem)
+{
+    $user = $request->user();
+
+    if ($user->role === 'user') {
+        if ($lostItem->user_id !== $user->id) {
             return $this->errorResponse(
                 'Forbidden. You are not allowed to delete this lost item.',
                 null,
@@ -116,10 +138,25 @@ class LostItemController extends Controller
             );
         }
 
-        $lostItem->delete();
+        if ($lostItem->status !== 'pending') {
+            return $this->errorResponse(
+                'Only pending lost items can be deleted.',
+                null,
+                422
+            );
+        }
+    }
 
-        return $this->successResponse(
-            'Lost item deleted successfully.'
+    if ($user->role === 'staff') {
+        return $this->errorResponse(
+            'Staff are not allowed to delete lost items.',
+            null,
+            403
         );
     }
+
+    $lostItem->delete();
+
+    return $this->successResponse('Lost item deleted successfully.');
+}
 }

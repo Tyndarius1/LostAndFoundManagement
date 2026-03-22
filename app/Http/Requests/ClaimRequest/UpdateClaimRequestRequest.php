@@ -3,7 +3,7 @@
 namespace App\Http\Requests\ClaimRequest;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+
 
 class UpdateClaimRequestRequest extends FormRequest
 {
@@ -25,7 +25,6 @@ class UpdateClaimRequestRequest extends FormRequest
         return [
             'proof_details' => ['sometimes', 'required', 'string'],
             'proof_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-            'status' => ['sometimes', 'required', Rule::in(['pending', 'approved', 'rejected', 'released'])],
         ];
     }
 }

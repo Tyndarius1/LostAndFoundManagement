@@ -143,86 +143,43 @@ class ClaimRequestController extends Controller
     public function update(UpdateClaimRequestRequest $request, ClaimRequest $claimRequest)
     {
         $user = $request->user();
-        $data = $request->validated();
-
-        if ($user->role === 'user') {
-            if ($claimRequest->claimant_id !== $user->id) {
-                return $this->errorResponse(
-                    'Forbidden. You are not allowed to update this claim request.',
-                    null,
-                    403
-                );
-            }
-
-            if ($claimRequest->status !== 'pending') {
-                return $this->errorResponse(
-                    'Only pending claim requests can be updated.',
-                    null,
-                    422
-                );
-            }
-
-            unset($data['status']);
-
-            if ($request->hasFile('proof_image')) {
-                $data['proof_image_path'] = $request->file('proof_image')->store('claim-proofs', 'public');
-            }
-
-            unset($data['proof_image']);
-
-            $claimRequest->update($data);
-        } elseif ($user->role === 'admin') {
-            if ($request->hasFile('proof_image')) {
-                $data['proof_image_path'] = $request->file('proof_image')->store('claim-proofs', 'public');
-            }
-
-            unset($data['proof_image']);
-
-            if (isset($data['status'])) {
-                if ($data['status'] === 'approved') {
-                    $alreadyApproved = ClaimRequest::where('found_item_id', $claimRequest->found_item_id)
-                        ->where('id', '!=', $claimRequest->id)
-                        ->where('status', 'approved')
-                        ->exists();
-
-                    if ($alreadyApproved) {
-                        return $this->errorResponse(
-                            'Another claim request has already been approved for this item.',
-                            null,
-                            422
-                        );
-                    }
-
-                    $data['approved_by'] = $user->id;
-                    $data['approved_at'] = now();
-
-                    $claimRequest->foundItem()->update([
-                        'status' => 'under_review',
-                    ]);
-                }
-
-                if ($data['status'] === 'rejected') {
-                    $data['approved_by'] = $user->id;
-                    $data['approved_at'] = null;
-                }
-            }
-
-            $claimRequest->update($data);
-        } else {
+    
+        if ($user->role !== 'user') {
+            return $this->errorResponse(
+                'Only users can update their own pending claim details here.',
+                null,
+                403
+            );
+        }
+    
+        if ($claimRequest->claimant_id !== $user->id) {
             return $this->errorResponse(
                 'Forbidden. You are not allowed to update this claim request.',
                 null,
                 403
             );
         }
-
-        $claimRequest->load([
-            'claimant',
-            'foundItem.staff',
-            'foundItem.category',
-            'approver',
-        ]);
-
+    
+        if ($claimRequest->status !== 'pending') {
+            return $this->errorResponse(
+                'Only pending claim requests can be updated.',
+                null,
+                422
+            );
+        }
+    
+        $data = $request->validated();
+    
+        unset($data['status']);
+    
+        if ($request->hasFile('proof_image')) {
+            $data['proof_image_path'] = $request->file('proof_image')->store('claim-proofs', 'public');
+        }
+    
+        unset($data['proof_image']);
+    
+        $claimRequest->update($data);
+    
         return $this->successResponse(
             'Claim request updated successfully.',
             new ClaimRequestResource($claimRequest->fresh([
@@ -233,6 +190,130 @@ class ClaimRequestController extends Controller
             ]))
         );
     }
+
+    public function approve(Request $request, ClaimRequest $claimRequest)
+{
+    $admin = $request->user();
+
+    if ($claimRequest->status !== 'pending') {
+        return $this->errorResponse(
+            'Only pending claim requests can be approved.',
+            null,
+            422
+        );
+    }
+
+    $foundItem = $claimRequest->foundItem;
+
+    if ($foundItem->status !== 'available') {
+        return $this->errorResponse(
+            'This found item is not available for approval.',
+            null,
+            422
+        );
+    }
+
+    $alreadyApproved = ClaimRequest::where('found_item_id', $claimRequest->found_item_id)
+        ->where('status', 'approved')
+        ->exists();
+
+    if ($alreadyApproved) {
+        return $this->errorResponse(
+            'A claim request has already been approved for this item.',
+            null,
+            422
+        );
+    }
+
+    $claimRequest->update([
+        'status' => 'approved',
+        'approved_by' => $admin->id,
+        'approved_at' => now(),
+    ]);
+
+    ClaimRequest::where('found_item_id', $claimRequest->found_item_id)
+        ->where('id', '!=', $claimRequest->id)
+        ->where('status', 'pending')
+        ->update([
+            'status' => 'rejected',
+        ]);
+
+    $foundItem->update([
+        'status' => 'under_review',
+    ]);
+
+    return $this->successResponse(
+        'Claim request approved successfully.',
+        new ClaimRequestResource($claimRequest->fresh([
+            'claimant',
+            'foundItem.staff',
+            'foundItem.category',
+            'approver',
+        ]))
+    );
+}
+
+public function reject(Request $request, ClaimRequest $claimRequest)
+{
+    $admin = $request->user();
+
+    if ($claimRequest->status !== 'pending') {
+        return $this->errorResponse(
+            'Only pending claim requests can be rejected.',
+            null,
+            422
+        );
+    }
+
+    $claimRequest->update([
+        'status' => 'rejected',
+        'approved_by' => $admin->id,
+        'approved_at' => null,
+    ]);
+
+    return $this->successResponse(
+        'Claim request rejected successfully.',
+        new ClaimRequestResource($claimRequest->fresh([
+            'claimant',
+            'foundItem.staff',
+            'foundItem.category',
+            'approver',
+        ]))
+    );
+}
+
+
+public function release(Request $request, ClaimRequest $claimRequest)
+{
+    if ($claimRequest->status !== 'approved') {
+        return $this->errorResponse(
+            'Only approved claim requests can be released.',
+            null,
+            422
+        );
+    }
+
+    $foundItem = $claimRequest->foundItem;
+
+    $claimRequest->update([
+        'status' => 'released',
+        'released_at' => now(),
+    ]);
+
+    $foundItem->update([
+        'status' => 'claimed',
+    ]);
+
+    return $this->successResponse(
+        'Item released successfully.',
+        new ClaimRequestResource($claimRequest->fresh([
+            'claimant',
+            'foundItem.staff',
+            'foundItem.category',
+            'approver',
+        ]))
+    );
+}
 
     public function destroy(Request $request, ClaimRequest $claimRequest)
     {

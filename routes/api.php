@@ -18,6 +18,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin')->group(function () {
         Route::apiResource('categories', CategoryController::class);
+
+        Route::post('claim-requests/{claimRequest}/approve', [ClaimRequestController::class, 'approve']);
+        Route::post('claim-requests/{claimRequest}/reject', [ClaimRequestController::class, 'reject']);
+        Route::post('claim-requests/{claimRequest}/release', [ClaimRequestController::class, 'release']);
+    
+        Route::post('found-items/{foundItem}/archive', [FoundItemController::class, 'archive']);
     });
 
     Route::middleware('role:admin,staff,user')->group(function () {
