@@ -11,6 +11,11 @@ use App\Http\Resources\ClaimRequestResource;
 use App\Http\Requests\ClaimRequest\StoreClaimRequestRequest;
 use App\Http\Requests\ClaimRequest\UpdateClaimRequestRequest;
 use App\Traits\HandlesUploads;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ClaimSubmittedMail;
+use App\Mail\ClaimApprovedMail;
+use App\Mail\ClaimRejectedMail;
+use App\Mail\ItemReleasedMail;
 
 
 class ClaimRequestController extends Controller
@@ -101,6 +106,8 @@ class ClaimRequestController extends Controller
             'approver',
         ]);
 
+        Mail::to($claimRequest->claimant->email)->send(new ClaimSubmittedMail($claimRequest));
+        
         return $this->successResponse(
             'Claim request submitted successfully.',
             new ClaimRequestResource($claimRequest),
@@ -199,128 +206,140 @@ class ClaimRequestController extends Controller
     }
 
     public function approve(Request $request, ClaimRequest $claimRequest)
-{
-    $admin = $request->user();
+    {
+        $admin = $request->user();
 
-    if ($claimRequest->status !== 'pending') {
-        return $this->errorResponse(
-            'Only pending claim requests can be approved.',
-            null,
-            422
-        );
-    }
+        if ($claimRequest->status !== 'pending') {
+            return $this->errorResponse(
+                'Only pending claim requests can be approved.',
+                null,
+                422
+            );
+        }
 
-    $foundItem = $claimRequest->foundItem;
+        $foundItem = $claimRequest->foundItem;
 
-    if ($foundItem->status !== 'available') {
-        return $this->errorResponse(
-            'This found item is not available for approval.',
-            null,
-            422
-        );
-    }
+        if ($foundItem->status !== 'available') {
+            return $this->errorResponse(
+                'This found item is not available for approval.',
+                null,
+                422
+            );
+        }
 
-    $alreadyApproved = ClaimRequest::where('found_item_id', $claimRequest->found_item_id)
-        ->where('status', 'approved')
-        ->exists();
+        $alreadyApproved = ClaimRequest::where('found_item_id', $claimRequest->found_item_id)
+            ->where('status', 'approved')
+            ->exists();
 
-    if ($alreadyApproved) {
-        return $this->errorResponse(
-            'A claim request has already been approved for this item.',
-            null,
-            422
-        );
-    }
+        if ($alreadyApproved) {
+            return $this->errorResponse(
+                'A claim request has already been approved for this item.',
+                null,
+                422
+            );
+        }
 
-    $claimRequest->update([
-        'status' => 'approved',
-        'approved_by' => $admin->id,
-        'approved_at' => now(),
-    ]);
-
-    ClaimRequest::where('found_item_id', $claimRequest->found_item_id)
-        ->where('id', '!=', $claimRequest->id)
-        ->where('status', 'pending')
-        ->update([
-            'status' => 'rejected',
+        $claimRequest->update([
+            'status' => 'approved',
+            'approved_by' => $admin->id,
+            'approved_at' => now(),
         ]);
 
-    $foundItem->update([
-        'status' => 'under_review',
-    ]);
+        ClaimRequest::where('found_item_id', $claimRequest->found_item_id)
+            ->where('id', '!=', $claimRequest->id)
+            ->where('status', 'pending')
+            ->update([
+                'status' => 'rejected',
+            ]);
 
-    return $this->successResponse(
-        'Claim request approved successfully.',
-        new ClaimRequestResource($claimRequest->fresh([
+        $foundItem->update([
+            'status' => 'under_review',
+        ]);
+
+        $claimRequest->load([
             'claimant',
             'foundItem.staff',
             'foundItem.category',
             'approver',
-        ]))
-    );
-}
+        ]);
 
-public function reject(Request $request, ClaimRequest $claimRequest)
-{
-    $admin = $request->user();
+        Mail::to($claimRequest->claimant->email)->send(new ClaimApprovedMail($claimRequest));
 
-    if ($claimRequest->status !== 'pending') {
-        return $this->errorResponse(
-            'Only pending claim requests can be rejected.',
-            null,
-            422
+        return $this->successResponse(
+            'Claim request approved successfully.',
+            new ClaimRequestResource($claimRequest)
         );
     }
 
-    $claimRequest->update([
-        'status' => 'rejected',
-        'approved_by' => $admin->id,
-        'approved_at' => null,
-    ]);
+    public function reject(Request $request, ClaimRequest $claimRequest)
+    {
+        $admin = $request->user();
 
-    return $this->successResponse(
-        'Claim request rejected successfully.',
-        new ClaimRequestResource($claimRequest->fresh([
+        if ($claimRequest->status !== 'pending') {
+            return $this->errorResponse(
+                'Only pending claim requests can be rejected.',
+                null,
+                422
+            );
+        }
+
+        $claimRequest->update([
+            'status' => 'rejected',
+            'approved_by' => $admin->id,
+            'approved_at' => null,
+        ]);
+
+        $claimRequest->load([
             'claimant',
             'foundItem.staff',
             'foundItem.category',
             'approver',
-        ]))
-    );
-}
+        ]);
 
+        Mail::to($claimRequest->claimant->email)->send(new ClaimRejectedMail($claimRequest));
 
-public function release(Request $request, ClaimRequest $claimRequest)
-{
-    if ($claimRequest->status !== 'approved') {
-        return $this->errorResponse(
-            'Only approved claim requests can be released.',
-            null,
-            422
+        return $this->successResponse(
+            'Claim request rejected successfully.',
+            new ClaimRequestResource($claimRequest)
         );
     }
 
-    $foundItem = $claimRequest->foundItem;
 
-    $claimRequest->update([
-        'status' => 'released',
-        'released_at' => now(),
-    ]);
+    public function release(Request $request, ClaimRequest $claimRequest)
+    {
+        if ($claimRequest->status !== 'approved') {
+            return $this->errorResponse(
+                'Only approved claim requests can be released.',
+                null,
+                422
+            );
+        }
 
-    $foundItem->update([
-        'status' => 'claimed',
-    ]);
+        $foundItem = $claimRequest->foundItem;
 
-    return $this->successResponse(
-        'Item released successfully.',
-        new ClaimRequestResource($claimRequest->fresh([
+        $claimRequest->update([
+            'status' => 'released',
+            'released_at' => now(),
+        ]);
+
+        $foundItem->update([
+            'status' => 'claimed',
+        ]);
+
+        $claimRequest->load([
             'claimant',
             'foundItem.staff',
             'foundItem.category',
             'approver',
-        ]))
-    );
-}
+        ]);
+
+        Mail::to($claimRequest->claimant->email)->send(new ItemReleasedMail($claimRequest));
+
+        return $this->successResponse(
+            'Item released successfully.',
+            new ClaimRequestResource($claimRequest)
+        );
+    }
 
     public function destroy(Request $request, ClaimRequest $claimRequest)
     {
