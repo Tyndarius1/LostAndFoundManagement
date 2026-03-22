@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PublicFoundItemResource;
 use App\Http\Resources\PublicLostItemResource;
+use App\Http\Resources\CategoryResource;
+use App\Models\Category;
 use App\Models\FoundItem;
 use App\Models\LostItem;
 use App\Traits\ApiResponse;
@@ -14,6 +16,16 @@ use Illuminate\Http\Request;
 class PublicBrowseController extends Controller
 {
     use ApiResponse;
+
+    public function categories()
+    {
+        $categories = Category::orderBy('name')->get();
+
+        return $this->successResponse(
+            'Public categories retrieved successfully.',
+            CategoryResource::collection($categories)
+        );
+    }
 
     public function lostItems(Request $request)
     {

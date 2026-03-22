@@ -16,6 +16,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/scan/{referenceCode}', [ScanController::class, 'show']);
 
 Route::prefix('public')->group(function () {
+    Route::get('/categories', [PublicBrowseController::class, 'categories']);
     Route::get('/lost-items', [PublicBrowseController::class, 'lostItems']);
     Route::get('/found-items', [PublicBrowseController::class, 'foundItems']);
     Route::get('/found-items/{referenceCode}', [PublicBrowseController::class, 'foundItemByReference']);
@@ -24,6 +25,10 @@ Route::prefix('public')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    Route::middleware('role:admin,staff,user')->group(function () {
+        Route::get('/lookup/categories', [CategoryController::class, 'index']);
+    });
 
     Route::middleware('role:admin')->group(function () {
         Route::apiResource('categories', CategoryController::class);
