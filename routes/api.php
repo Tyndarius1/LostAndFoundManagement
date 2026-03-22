@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ClaimRequestController;
 use App\Http\Controllers\Api\FoundItemController;
 use App\Http\Controllers\Api\ImportExportController;
 use App\Http\Controllers\Api\LostItemController;
+use App\Http\Controllers\Api\PublicBrowseController;
 use App\Http\Controllers\Api\ScanController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +14,12 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/scan/{referenceCode}', [ScanController::class, 'show']);
+
+Route::prefix('public')->group(function () {
+    Route::get('/lost-items', [PublicBrowseController::class, 'lostItems']);
+    Route::get('/found-items', [PublicBrowseController::class, 'foundItems']);
+    Route::get('/found-items/{referenceCode}', [PublicBrowseController::class, 'foundItemByReference']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
