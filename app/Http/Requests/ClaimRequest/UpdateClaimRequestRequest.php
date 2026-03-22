@@ -3,6 +3,7 @@
 namespace App\Http\Requests\ClaimRequest;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateClaimRequestRequest extends FormRequest
 {
