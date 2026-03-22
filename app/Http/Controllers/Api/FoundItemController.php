@@ -9,10 +9,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FoundItemResource;
 use App\Http\Requests\FoundItem\StoreFoundItemRequest;
 use App\Http\Requests\FoundItem\UpdateFoundItemRequest;
+use App\Traits\HandlesUploads;
 
 class FoundItemController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, HandlesUploads;
 
     public function index(Request $request)
     {
@@ -37,7 +38,11 @@ class FoundItemController extends Controller
         $data = $request->validated();
 
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('found-items', 'public');
+            $data['image_path'] = $this->replaceImage(
+                $request->file('image'),
+                $foundItem->image_path,
+                'found-items'
+            );
         }
 
         $data['staff_id'] = $request->user()->id;
@@ -143,7 +148,7 @@ public function destroy(Request $request, FoundItem $foundItem)
             );
         }
     }
-
+    $this->deleteImage($foundItem->image_path);
     $foundItem->delete();
 
     return $this->successResponse('Found item deleted successfully.');

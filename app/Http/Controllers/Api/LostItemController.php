@@ -9,10 +9,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\LostItemResource;
 use App\Http\Requests\LostItem\StoreLostItemRequest;
 use App\Http\Requests\LostItem\UpdateLostItemRequest;
+use App\Traits\HandlesUploads;
 
 class LostItemController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, HandlesUploads;
 
     public function index(Request $request)
     {
@@ -37,7 +38,7 @@ class LostItemController extends Controller
         $data = $request->validated();
 
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('lost-items', 'public');
+            $data['image_path'] = $this->storeImage($request->file('image'), 'lost-items');
         }
 
         $data['user_id'] = $request->user()->id;
@@ -108,7 +109,11 @@ class LostItemController extends Controller
         $data = $request->validated();
 
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('lost-items', 'public');
+            $data['image_path'] = $this->replaceImage(
+                $request->file('image'),
+                $lostItem->image_path,
+                'lost-items'
+            );
         }
 
         if ($user->role === 'user') {
@@ -155,6 +160,7 @@ class LostItemController extends Controller
         );
     }
 
+    $this->deleteImage($lostItem->image_path);
     $lostItem->delete();
 
     return $this->successResponse('Lost item deleted successfully.');

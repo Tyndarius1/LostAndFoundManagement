@@ -10,10 +10,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ClaimRequestResource;
 use App\Http\Requests\ClaimRequest\StoreClaimRequestRequest;
 use App\Http\Requests\ClaimRequest\UpdateClaimRequestRequest;
+use App\Traits\HandlesUploads;
+
 
 class ClaimRequestController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, HandlesUploads;
 
     public function index(Request $request)
     {
@@ -84,8 +86,10 @@ class ClaimRequestController extends Controller
         $data['status'] = 'pending';
 
         if ($request->hasFile('proof_image')) {
-            $data['proof_image_path'] = $request->file('proof_image')->store('claim-proofs', 'public');
-        }
+            $data['proof_image_path'] = $this->storeImage(
+                $request->file('proof_image'),
+                'claim-proofs'
+            );        }
 
         unset($data['proof_image']);
 
@@ -173,8 +177,11 @@ class ClaimRequestController extends Controller
         unset($data['status']);
     
         if ($request->hasFile('proof_image')) {
-            $data['proof_image_path'] = $request->file('proof_image')->store('claim-proofs', 'public');
-        }
+            $data['proof_image_path'] = $this->replaceImage(
+                $request->file('proof_image'),
+                $claimRequest->proof_image_path,
+                'claim-proofs'
+            );        }
     
         unset($data['proof_image']);
     
@@ -342,7 +349,7 @@ public function release(Request $request, ClaimRequest $claimRequest)
                 403
             );
         }
-
+        $this->deleteImage($claimRequest->proof_image_path);
         $claimRequest->delete();
 
         return $this->successResponse(
