@@ -9,11 +9,22 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FoundItemResource;
 use App\Http\Requests\FoundItem\StoreFoundItemRequest;
 use App\Http\Requests\FoundItem\UpdateFoundItemRequest;
+use App\Traits\HandlesQrCodes;
 use App\Traits\HandlesUploads;
+use Illuminate\Support\Str;
 
 class FoundItemController extends Controller
 {
-    use ApiResponse, HandlesUploads;
+    use ApiResponse, HandlesUploads, HandlesQrCodes;
+
+    protected function generateReferenceCode(): string
+    {
+        do {
+            $code = strtoupper(Str::random(10));
+        } while (FoundItem::where('reference_code', $code)->exists());
+
+        return $code;
+    }
 
     public function index(Request $request)
     {
@@ -38,11 +49,7 @@ class FoundItemController extends Controller
         $data = $request->validated();
 
         if ($request->hasFile('image')) {
-            $data['image_path'] = $this->replaceImage(
-                $request->file('image'),
-                $foundItem->image_path,
-                'found-items'
-            );
+            $data['image_path'] = $this->storeImage($request->file('image'), 'found-items');
         }
 
         $data['staff_id'] = $request->user()->id;
@@ -50,11 +57,18 @@ class FoundItemController extends Controller
         $data['status'] = 'available';
 
         $foundItem = FoundItem::create($data);
+
+        $qrPath = $this->generateFoundItemQrCode($foundItem->reference_code);
+
+        $foundItem->update([
+            'qr_code_path' => $qrPath,
+        ]);
+
         $foundItem->load(['staff', 'category']);
 
         return $this->successResponse(
             'Found item created successfully.',
-            new FoundItemResource($foundItem),
+            new FoundItemResource($foundItem->fresh(['staff', 'category'])),
             201
         );
     }
@@ -149,11 +163,39 @@ public function destroy(Request $request, FoundItem $foundItem)
         }
     }
     $this->deleteImage($foundItem->image_path);
+    $this->deleteQrCode($foundItem->qr_code_path);
+
     $foundItem->delete();
 
     return $this->successResponse('Found item deleted successfully.');
 }
 
+    public function regenerateQr(Request $request, FoundItem $foundItem)
+    {
+        $user = $request->user();
+
+        if ($user->role === 'staff' && $foundItem->staff_id !== $user->id) {
+            return $this->errorResponse(
+                'Forbidden. You are not allowed to regenerate QR for this item.',
+                null,
+                403
+            );
+        }
+
+        $newQrPath = $this->replaceFoundItemQrCode(
+            $foundItem->qr_code_path,
+            $foundItem->reference_code
+        );
+
+        $foundItem->update([
+            'qr_code_path' => $newQrPath,
+        ]);
+
+        return $this->successResponse(
+            'QR code regenerated successfully.',
+            new FoundItemResource($foundItem->fresh(['staff', 'category']))
+        );
+    }
 
 public function archive(Request $request, FoundItem $foundItem)
 {

@@ -5,12 +5,15 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\LostItemController;
 use App\Http\Controllers\Api\FoundItemController;
 use App\Http\Controllers\Api\ClaimRequestController;
+use App\Http\Controllers\Api\ScanController;
 
 
 
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+Route::get('/scan/{referenceCode}', [ScanController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
@@ -33,5 +36,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin,staff')->group(function () {
         Route::apiResource('found-items', FoundItemController::class);
+        Route::post('found-items/{foundItem}/regenerate-qr', [FoundItemController::class, 'regenerateQr']);
     });
 });
