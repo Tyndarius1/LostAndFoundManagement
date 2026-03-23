@@ -45,6 +45,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('exports/claim-requests', [ImportExportController::class, 'exportClaimRequests']);
 
         Route::post('imports/categories', [ImportExportController::class, 'importCategories']);
+
+        Route::get('users', [AuthController::class, 'index']);
+        Route::post('users/create-staff', [AuthController::class, 'createStaff']);
+        Route::post('users/create-user', [AuthController::class, 'createUser']);
     });
 
     Route::middleware('role:admin,staff,user')->group(function () {

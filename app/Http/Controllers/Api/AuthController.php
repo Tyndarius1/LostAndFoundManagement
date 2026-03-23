@@ -16,6 +16,12 @@ class AuthController extends Controller
 {
     use ApiResponse;
 
+    public function index()
+    {
+        $users = User::latest()->get();
+        return $this->successResponse('Users retrieved successfully.', UserResource::collection($users));
+    }
+
     public function register(RegisterRequest $request)
     {
         $user = User::create([
@@ -57,8 +63,17 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                'unique:users,email',
+                'regex:/^[\w\.-]+@mlgcl\.edu\.ph$/i'
+            ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'email.regex' => 'Email must be a valid @mlgcl.edu.ph address.',
         ]);
 
         $staff = User::create([
@@ -69,6 +84,33 @@ class AuthController extends Controller
         ]);
 
         return $this->successResponse('Staff account created successfully.', new UserResource($staff), 201);
+    }
+
+    public function createUser(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                'unique:users,email',
+                'regex:/^[\w\.-]+@mlgcl\.edu\.ph$/i'
+            ],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'email.regex' => 'Email must be a valid @mlgcl.edu.ph address.',
+        ]);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'role' => 'user',
+        ]);
+
+        return $this->successResponse('User account created successfully.', new UserResource($user), 201);
     }
 
     public function me(Request $request)
