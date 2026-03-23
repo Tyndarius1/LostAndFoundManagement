@@ -10,7 +10,9 @@ use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 
 class AuthController extends Controller
 {
@@ -119,6 +121,43 @@ class AuthController extends Controller
             'Authenticated user retrieved successfully.',
             new UserResource($request->user())
         );
+    }
+
+    public function updateProfile(UpdateProfileRequest $request)
+    {
+        $user = $request->user();
+        $validated = $request->validated();
+
+        if (isset($validated['password'])) {
+            if (! Hash::check($validated['current_password'], $user->password)) {
+                throw ValidationException::withMessages([
+                    'current_password' => ['The provided current password does not match our records.'],
+                ]);
+            }
+            $user->password = $validated['password'];
+        }
+
+        if (isset($validated['name'])) {
+            $user->name = $validated['name'];
+        }
+
+        if (isset($validated['email'])) {
+            $user->email = $validated['email'];
+        }
+
+        if ($request->hasFile('profile_image')) {
+            // Delete old profile image if exists
+            if ($user->profile_image) {
+                Storage::disk('public')->delete($user->profile_image);
+            }
+
+            $path = $request->file('profile_image')->store('profiles', 'public');
+            $user->profile_image = $path;
+        }
+
+        $user->save();
+
+        return $this->successResponse('Profile updated successfully.', new UserResource($user));
     }
 
     public function logout(Request $request)

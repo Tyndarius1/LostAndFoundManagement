@@ -24,6 +24,7 @@ Route::prefix('public')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class , 'me']);
+    Route::patch('/me', [AuthController::class , 'updateProfile']);
     Route::post('/logout', [AuthController::class , 'logout']);
 
     Route::middleware('role:admin,staff,user')->group(function () {
