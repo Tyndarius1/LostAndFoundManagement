@@ -40,15 +40,15 @@ class PublicBrowseController extends Controller
 
         return $this->successResponse(
             'Public lost items retrieved successfully.',
-            [
-                'items' => PublicLostItemResource::collection($lostItems->items()),
-                'pagination' => [
-                    'current_page' => $lostItems->currentPage(),
-                    'last_page' => $lostItems->lastPage(),
-                    'per_page' => $lostItems->perPage(),
-                    'total' => $lostItems->total(),
-                ],
-            ]
+        [
+            'items' => PublicLostItemResource::collection($lostItems->items()),
+            'pagination' => [
+                'current_page' => $lostItems->currentPage(),
+                'last_page' => $lostItems->lastPage(),
+                'per_page' => $lostItems->perPage(),
+                'total' => $lostItems->total(),
+            ],
+        ]
         );
     }
 
@@ -65,15 +65,15 @@ class PublicBrowseController extends Controller
 
         return $this->successResponse(
             'Public found items retrieved successfully.',
-            [
-                'items' => PublicFoundItemResource::collection($foundItems->items()),
-                'pagination' => [
-                    'current_page' => $foundItems->currentPage(),
-                    'last_page' => $foundItems->lastPage(),
-                    'per_page' => $foundItems->perPage(),
-                    'total' => $foundItems->total(),
-                ],
-            ]
+        [
+            'items' => PublicFoundItemResource::collection($foundItems->items()),
+            'pagination' => [
+                'current_page' => $foundItems->currentPage(),
+                'last_page' => $foundItems->lastPage(),
+                'per_page' => $foundItems->perPage(),
+                'total' => $foundItems->total(),
+            ],
+        ]
         );
     }
 
@@ -84,7 +84,7 @@ class PublicBrowseController extends Controller
             ->where('status', 'available')
             ->first();
 
-        if (! $foundItem) {
+        if (!$foundItem) {
             return $this->errorResponse(
                 'Found item not found.',
                 null,

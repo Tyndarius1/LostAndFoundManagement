@@ -12,17 +12,17 @@ class CategoriesImport implements ToCollection, WithHeadingRow
     public function collection(Collection $rows): void
     {
         foreach ($rows as $row) {
-            $name = trim((string) ($row['name'] ?? ''));
+            $name = trim((string)($row['name'] ?? ''));
 
             if ($name === '') {
                 continue;
             }
 
             Category::updateOrCreate(
-                ['name' => $name],
-                [
-                    'description' => $row['description'] ?? null,
-                ]
+            ['name' => $name],
+            [
+                'description' => $row['description'] ?? null,
+            ]
             );
         }
     }
