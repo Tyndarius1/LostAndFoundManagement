@@ -11,6 +11,7 @@ use App\Http\Resources\ClaimRequestResource;
 use App\Http\Requests\ClaimRequest\StoreClaimRequestRequest;
 use App\Http\Requests\ClaimRequest\UpdateClaimRequestRequest;
 use App\Traits\HandlesUploads;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\ClaimSubmittedMail;
 use App\Mail\ClaimApprovedMail;
@@ -209,6 +210,14 @@ class ClaimRequestController extends Controller
     {
         $admin = $request->user();
 
+        if ($admin->role !== 'admin') {
+            return $this->errorResponse(
+                'Only admins can approve claim requests.',
+                null,
+                403
+            );
+        }
+
         if ($claimRequest->status !== 'pending') {
             return $this->errorResponse(
                 'Only pending claim requests can be approved.',
@@ -239,22 +248,24 @@ class ClaimRequestController extends Controller
             );
         }
 
-        $claimRequest->update([
-            'status' => 'approved',
-            'approved_by' => $admin->id,
-            'approved_at' => now(),
-        ]);
-
-        ClaimRequest::where('found_item_id', $claimRequest->found_item_id)
-            ->where('id', '!=', $claimRequest->id)
-            ->where('status', 'pending')
-            ->update([
-                'status' => 'rejected',
+        DB::transaction(function () use ($claimRequest, $foundItem, $admin) {
+            $claimRequest->update([
+                'status' => 'approved',
+                'approved_by' => $admin->id,
+                'approved_at' => now(),
             ]);
 
-        $foundItem->update([
-            'status' => 'under_review',
-        ]);
+            ClaimRequest::where('found_item_id', $claimRequest->found_item_id)
+                ->where('id', '!=', $claimRequest->id)
+                ->where('status', 'pending')
+                ->update([
+                    'status' => 'rejected',
+                ]);
+
+            $foundItem->update([
+                'status' => 'under_review',
+            ]);
+        });
 
         $claimRequest->load([
             'claimant',
@@ -275,6 +286,14 @@ class ClaimRequestController extends Controller
     {
         $admin = $request->user();
 
+        if ($admin->role !== 'admin') {
+            return $this->errorResponse(
+                'Only admins can reject claim requests.',
+                null,
+                403
+            );
+        }
+
         if ($claimRequest->status !== 'pending') {
             return $this->errorResponse(
                 'Only pending claim requests can be rejected.',
@@ -283,11 +302,13 @@ class ClaimRequestController extends Controller
             );
         }
 
-        $claimRequest->update([
-            'status' => 'rejected',
-            'approved_by' => $admin->id,
-            'approved_at' => null,
-        ]);
+        DB::transaction(function () use ($claimRequest, $admin) {
+            $claimRequest->update([
+                'status' => 'rejected',
+                'approved_by' => $admin->id,
+                'approved_at' => null,
+            ]);
+        });
 
         $claimRequest->load([
             'claimant',
@@ -307,6 +328,16 @@ class ClaimRequestController extends Controller
 
     public function release(Request $request, ClaimRequest $claimRequest)
     {
+        $admin = $request->user();
+
+        if ($admin->role !== 'admin') {
+            return $this->errorResponse(
+                'Only admins can release approved claim requests.',
+                null,
+                403
+            );
+        }
+
         if ($claimRequest->status !== 'approved') {
             return $this->errorResponse(
                 'Only approved claim requests can be released.',
@@ -317,14 +348,16 @@ class ClaimRequestController extends Controller
 
         $foundItem = $claimRequest->foundItem;
 
-        $claimRequest->update([
-            'status' => 'released',
-            'released_at' => now(),
-        ]);
+        DB::transaction(function () use ($claimRequest, $foundItem) {
+            $claimRequest->update([
+                'status' => 'released',
+                'released_at' => now(),
+            ]);
 
-        $foundItem->update([
-            'status' => 'claimed',
-        ]);
+            $foundItem->update([
+                'status' => 'claimed',
+            ]);
+        });
 
         $claimRequest->load([
             'claimant',
