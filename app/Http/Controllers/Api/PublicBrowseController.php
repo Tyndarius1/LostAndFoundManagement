@@ -35,7 +35,7 @@ class PublicBrowseController extends Controller
         $this->applyLostItemFilters($query, $request);
 
         $lostItems = $query->latest()->paginate(
-            $request->integer('per_page', 12)
+            $this->resolvePerPage($request)
         );
 
         return $this->successResponse(
@@ -60,7 +60,7 @@ class PublicBrowseController extends Controller
         $this->applyFoundItemFilters($query, $request);
 
         $foundItems = $query->latest()->paginate(
-            $request->integer('per_page', 12)
+            $this->resolvePerPage($request)
         );
 
         return $this->successResponse(
@@ -157,5 +157,10 @@ class PublicBrowseController extends Controller
                     ->orWhere('reference_code', 'like', "%{$search}%");
             });
         }
+    }
+
+    private function resolvePerPage(Request $request): int
+    {
+        return max(1, min($request->integer('per_page', 12), 50));
     }
 }
