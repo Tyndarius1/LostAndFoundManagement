@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ClaimRequestController;
 use App\Http\Controllers\Api\FoundItemController;
@@ -38,8 +39,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('claim-requests/{claimRequest}/approve', [ClaimRequestController::class , 'approve']);
             Route::post('claim-requests/{claimRequest}/reject', [ClaimRequestController::class , 'reject']);
             Route::post('claim-requests/{claimRequest}/release', [ClaimRequestController::class , 'release']);
+            Route::post('claim-requests/{claimRequest}/reissue-pickup-code', [ClaimRequestController::class, 'reissuePickupCode']);
 
             Route::post('found-items/{foundItem}/archive', [FoundItemController::class , 'archive']);
+
+            Route::get('activity-logs', [ActivityLogController::class, 'index']);
 
             Route::get('exports/categories', [ImportExportController::class , 'exportCategories']);
             Route::get('exports/lost-items', [ImportExportController::class , 'exportLostItems']);
@@ -57,12 +61,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::middleware('role:admin,staff,user')->group(function () {
             Route::apiResource('lost-items', LostItemController::class);
             Route::apiResource('claim-requests', ClaimRequestController::class);
+            Route::get('lost-items/{lostItem}/matches', [LostItemController::class, 'matches']);
+            Route::get('claim-requests/{claimRequest}/activity', [ClaimRequestController::class, 'activity']);
         }
         );
 
         Route::middleware('role:admin,staff')->group(function () {
+            Route::patch('claim-requests/{claimRequest}/notes', [ClaimRequestController::class, 'updateNotes']);
+        });
+
+        Route::middleware('role:admin,staff')->group(function () {
             Route::apiResource('found-items', FoundItemController::class);
             Route::post('found-items/{foundItem}/regenerate-qr', [FoundItemController::class , 'regenerateQr']);
+            Route::get('found-items/{foundItem}/matches', [FoundItemController::class, 'matches']);
         }
         );
     });

@@ -15,7 +15,14 @@
     <p><strong>Reference Code:</strong> {{ $claimRequest->foundItem->reference_code }}</p>
     <p><strong>Status:</strong> {{ ucfirst($claimRequest->status) }}</p>
 
-    <p>Please wait for release instructions from the admin or office staff.</p>
+    @if($claimRequest->pickup_code)
+        <p><strong>Pickup Code:</strong> {{ $claimRequest->pickup_code }}</p>
+        @if($claimRequest->pickup_code_expires_at)
+            <p><strong>Code Expiry:</strong> {{ $claimRequest->pickup_code_expires_at->format('Y-m-d h:i A') }}</p>
+        @endif
+    @endif
+
+    <p>Please bring the pickup code and a valid ID when collecting the item.</p>
 
     <p>Thank you.</p>
 </body>

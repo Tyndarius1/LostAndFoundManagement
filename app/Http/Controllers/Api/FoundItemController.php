@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\FoundItem;
+use App\Models\LostItem;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FoundItemResource;
+use App\Http\Resources\LostItemResource;
 use App\Http\Requests\FoundItem\StoreFoundItemRequest;
 use App\Http\Requests\FoundItem\UpdateFoundItemRequest;
 use App\Traits\HandlesQrCodes;
@@ -90,6 +92,89 @@ class FoundItemController extends Controller
         return $this->successResponse(
             'Found item retrieved successfully.',
             new FoundItemResource($foundItem)
+        );
+    }
+
+    public function matches(Request $request, FoundItem $foundItem)
+    {
+        $user = $request->user();
+
+        if ($user->role === 'staff' && $foundItem->staff_id !== $user->id) {
+            return $this->errorResponse(
+                'Forbidden. You are not allowed to view matches for this found item.',
+                null,
+                403
+            );
+        }
+
+        $foundItem->load('category');
+
+        $max = (int) $request->query('limit', 10);
+        $max = max(1, min($max, 25));
+
+        $lost = LostItem::query()
+            ->with(['category', 'user'])
+            ->whereIn('status', ['pending', 'matched'])
+            ->when($foundItem->category_id, fn ($q) => $q->where('category_id', $foundItem->category_id))
+            ->latest()
+            ->limit(200)
+            ->get();
+
+        $foundName = mb_strtolower((string) $foundItem->item_name);
+        $foundColor = mb_strtolower((string) ($foundItem->color ?? ''));
+
+        $scored = $lost->map(function (LostItem $li) use ($request, $foundItem, $foundName, $foundColor) {
+            $score = 0;
+
+            if ($foundItem->category_id && $li->category_id === $foundItem->category_id) {
+                $score += 50;
+            }
+
+            if ($foundColor !== '' && $li->color) {
+                $liColor = mb_strtolower((string) $li->color);
+                if ($liColor === $foundColor) {
+                    $score += 20;
+                } elseif (str_contains($liColor, $foundColor) || str_contains($foundColor, $liColor)) {
+                    $score += 10;
+                }
+            }
+
+            $liName = mb_strtolower((string) $li->item_name);
+            if ($foundName !== '' && $liName !== '') {
+                if ($liName === $foundName) {
+                    $score += 30;
+                } elseif (str_contains($liName, $foundName) || str_contains($foundName, $liName)) {
+                    $score += 20;
+                } else {
+                    $dist = levenshtein(mb_substr($foundName, 0, 80), mb_substr($liName, 0, 80));
+                    if ($dist <= 6) {
+                        $score += 10;
+                    }
+                }
+            }
+
+            if ($li->date_lost && $foundItem->date_found) {
+                $days = abs($li->date_lost->diffInDays($foundItem->date_found));
+                if ($days <= 3) $score += 15;
+                elseif ($days <= 14) $score += 8;
+                elseif ($days <= 30) $score += 3;
+            }
+
+            $arr = (new LostItemResource($li))->toArray($request);
+            $arr['match_score'] = $score;
+
+            return $arr;
+        })
+            ->sortByDesc('match_score')
+            ->values()
+            ->take($max);
+
+        return $this->successResponse(
+            'Potential matches retrieved successfully.',
+            [
+                'found_item_id' => $foundItem->id,
+                'items' => $scored,
+            ]
         );
     }
 
